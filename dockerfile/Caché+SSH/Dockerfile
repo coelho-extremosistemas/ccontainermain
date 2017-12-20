@@ -4,7 +4,7 @@
 # - it handles container PID 1 via ccontainermain which offers various flags
 #
 # build the new image with:
-# $ docker build --force-rm --no-cache -t cache:2016.2 .
+# $ docker build --force-rm --no-cache -t cache:2017.1 .
 #--
 
 # pull from this repository
@@ -13,7 +13,7 @@
 #
 FROM tutum/centos:latest
 
-MAINTAINER user <user@company.com>
+MAINTAINER Marcio Jota Coelho <coelho@extremosistemas.com.br>
 
 # setup vars section___________________________________________________________________
 #
@@ -21,8 +21,13 @@ ENV TMP_INSTALL_DIR=/tmp/distrib
 
 # vars for Caché silent install
 ENV ISC_PACKAGE_INSTANCENAME="CACHE"
-ENV ISC_PACKAGE_INSTALLDIR="/usr/cachesys"
+ENV ISC_PACKAGE_INSTALLDIR="/InterSystems/cache"
 ENV ISC_PACKAGE_UNICODE="Y"
+ENV ISC_PACKAGE_CSP_CONFIGURE="Y"
+ENV ISC_PACKAGE_CSP_SERVERTYPE="Apache"
+ENV ISC_PACKAGE_CSP_APACHE_VERSION=2.4
+ENV ISC_PACKAGE_USER_PASSWORD="ccscache"
+ENV ISC_PACKAGE_INITIAL_SECURITY="normal"
 
 # Caché distribution file________________________________________________________________
 # set-up and install Caché from distrib_tmp dir
@@ -31,10 +36,10 @@ WORKDIR ${TMP_INSTALL_DIR}
 
 # update OS + dependencies & run Caché silent install___________________________________
 RUN yum -y update && \
-    yum -y install tar hostname net-tools which wget java && \
+    yum -y install tar hostname net-tools which wget java httpd && \
 
 # Replace the following location with that of your Cache 2016.2 kit
-    wget -O - 'https://replace_this_with_your_server/distrib/cache-2016.2.0.736.0-lnxrhx64.tar.gz' \
+    wget -O - 'http://gercon.consistem.com.br/implantacao/InterSystems/2017/cache-2017.1.1.111.0-lnxrhx64.tar.gz' \
 
 # Alternatively, if you're comfortable with all parties with access to to this docker image having
 # access to these WRC credentials via the `docker history` command, comment out the above line,
@@ -50,7 +55,7 @@ RUN yum -y update && \
     ./cache-*/cinstall_silent && \
     rm -rf ${TMP_INSTALL_DIR}/* && \
     ccontrol stop $ISC_PACKAGE_INSTANCENAME quietly 
-COPY cache.key $ISC_PACKAGE_INSTALLDIR/mgr/
+#COPY cache.key $ISC_PACKAGE_INSTALLDIR/mgr/
 
 # Workaround for an overlayfs bug which prevents Cache from starting with <PROTECT> errors
 COPY ccontrol-wrapper.sh /usr/bin/
@@ -59,8 +64,12 @@ RUN cd /usr/bin                     && \
     mv ccontrol-wrapper.sh ccontrol && \
     chmod 555 ccontrol
 
+RUN systemctl enable httpd
+
+
+
 # TCP sockets that can be accessed if user wants to (see 'docker run -p' flag)
-EXPOSE 57772 1972 22
+EXPOSE 57772 1972 80 22
 
 # Caché container main process PID 1 (https://github.com/zrml/ccontainermain)
 WORKDIR /
@@ -69,7 +78,7 @@ ADD ccontainermain .
 ENTRYPOINT  ["/ccontainermain"]
 
 # run via:
-# docker run -d -p 57772:57772 -p 2222:22 -e ROOT_PASS="linux" <docker_image_id> -i=CACHE -xstart=/run.sh 
+# docker run -d -name cache -p 57773:57772 -p 2222:22 -p 85:80 -e ROOT_PASS="linux" cache:2017.1 -i=CACHE -xstart=/run.sh 
 #
 # more options & explinations
 # $ docker run -d			// detached in the background; accessed only via network
